@@ -17,6 +17,10 @@ function saveUsers(users) {
 }
 
 // LOGIN (SQL Injection vulnerable)
+// Root route - redirect to login page
+app.get("/", (req, res) => {
+  res.redirect("/login.html");
+});
 app.post("/login", (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
