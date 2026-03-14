@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const fs = require("fs");
+const path = require("path"); // Added for path handling
 const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -11,28 +12,23 @@ function getUsers() {
   return JSON.parse(fs.readFileSync("users.json"));
 }
 
-// Helper to write users
-function saveUsers(users) {
-  fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
-}
-
-// LOGIN (SQL Injection vulnerable)
-// Root route - redirect to login page
+// --- UPDATED ROOT ROUTE ---
+// Serves the login page directly as the entry point
 app.get("/", (req, res) => {
-  res.redirect("/login.html");
+  res.sendFile(path.join(__dirname, "public", "login.html"));
 });
-app.post("/login", (req, res) => {
-  const username = req.body.username;
-  const password = req.body.password;
 
-  // vulnerable: simulates SQLi by doing string matching on JSON
+// LOGIN (Vulnerable logic)
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
   const users = getUsers();
+  
   const user = users.find(u => username == u.username && password == u.password);
 
   if(user){
     res.redirect(`/dashboard?user=${username}`);
   } else {
-    res.send("Login Failed");
+    res.status(401).send("Login Failed");
   }
 });
 
@@ -40,7 +36,12 @@ app.post("/login", (req, res) => {
 app.get("/dashboard", (req,res)=>{
   const userParam = req.query.user;
   const users = getUsers();
-  const user = users.find(u=>u.username==userParam);
+  const user = users.find(u => u.username == userParam);
+
+  // Guard clause to prevent server crash if user isn't found
+  if (!user) {
+    return res.redirect("/");
+  }
 
   res.send(`
     <h1>Online Banking Dashboard</h1>
@@ -53,8 +54,7 @@ app.get("/dashboard", (req,res)=>{
 
 // TRANSFER (CSRF vulnerable)
 app.post("/transfer",(req,res)=>{
-  const to = req.body.to;
-  const amount = req.body.amount;
+  const { to, amount } = req.body;
   res.send(`
     <h2>Transfer Successful</h2>
     <p>$${amount} sent to ${to}</p>
@@ -70,4 +70,4 @@ app.get("/profile",(req,res)=>{
   `);
 });
 
-app.listen(3000,()=>console.log("Bank server running on port 3000"));
+app.listen(3000,()=>console.log("Bank server running on http://localhost:3000"));
