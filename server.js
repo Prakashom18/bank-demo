@@ -20,15 +20,30 @@ app.get("/", (req, res) => {
 
 // LOGIN (Vulnerable logic)
 app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+  const username = req.body.username;
+  const password = req.body.password;
+
+  // This simulates a SQL string concatenation:
+  const query = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+  console.log("Executing Query: " + query);
+
+  // Simulating the database result
   const users = getUsers();
   
-  const user = users.find(u => username == u.username && password == u.password);
+  // This logic now mimics how a vulnerable SQL engine would "see" the injection
+  const user = users.find(u => {
+      // If the username contains ' --, we ignore the password part
+      if (username.includes("' --")) {
+          const actualName = username.split("'")[0];
+          return u.username === actualName;
+      }
+      return u.username === username && u.password === password;
+  });
 
   if(user){
-    res.redirect(`/dashboard?user=${username}`);
+    res.redirect(`/dashboard?user=${user.username}`);
   } else {
-    res.status(401).send("Login Failed");
+    res.send("Login Failed");
   }
 });
 
